@@ -8,14 +8,22 @@
   default the code is wrapped in a simple =main= func. If =:package=
   option isn't set and no package is declared in the code, then the
   =main= package is declared.
+  比原仓库加了run前用goimports自动格式化和imports补全，并支持更随意的写法（如不提供main函数）。这简直像是给go加了个预处理程序，支持更随意的写法了。（freedom~ cool~）
+  [[file:./test.gif]]
 
-  : #+begin_src go :imports "fmt"
-  :   fmt.Println("Hello, 世界")
-  : #+end_src
-  :
-  : #+results:
-  : : Hello, 世界
-
+: #+BEGIN_SRC go
+: import "context"       // goimports会自动去除unused imports
+: 
+: fmt.Printf("Hi world\n")  // goimports会自动补全imports
+: 
+: func Add(x int, y int) int{
+:     return x+y
+: }
+: 
+: Add(1,3);
+: 
+: fmt.Printf("Add(1,2): %+v\n", Add(1,2))
+: #+END_SRC
 * Language Specific Header Arguments
 
   In addition to the normal header arguments for Babel, below are some some

@@ -111,7 +111,8 @@ called by `org-babel-execute-src-block'"
     (let
 	((results
 	      (org-babel-eval
-	       (format "%s run %s \"%s\" %s"
+	       (format "goimports -w %s; %s run %s \"%s\" %s" ;; andy custom: use goimports to auto import before run file
+                       (org-babel-process-file-name tmp-src-file)
 		       org-babel-go-command
 		       (mapconcat 'identity (org-babel-go-as-list flags) " ")
 		       (org-babel-process-file-name tmp-src-file)
@@ -154,7 +155,56 @@ support for sessions"
   "Check to see if main is already defined. If not, add it."
   (if (string-match-p "^[ \t]*func main *() *{" body)
       body
-    (concat "func main() {\n" body "\n}\n")))
+    ;; (concat "func main() {\n" body "\n}\n")
+    (wrap-go-code-with-main body)
+    ))
+
+(defun wrap-go-code-with-main (code)
+  "Wrap non-function code in a main function for the given Go CODE string."
+  ;; 示例
+  ;; (wrap-go-code-with-main "import \"a\" \n  func yy(){\n   xxxx\n}\nfunc xx(){\n  xxx\n  xx\n} \na:=1;\n b:=2;")
+  
+  (let ((lines (split-string code "\n" t))
+        (a '())      ;; 存储函数定义及其体
+        (b '())      ;; 存储其他代码
+        (c '())      ;; imports
+        (funcp nil)) ;; 状态标识，指示当前是否在函数体内
+    ;; 遍历代码行
+    (dolist (line lines)
+      (setq line (string-trim line))
+      (cond
+       ;; 检查是否是函数定义
+       ((string-match-p "^func " line)
+        (setq funcp t)
+        (setq a (append a (list line)))
+        )
+       ;; 检查是否是函数体结束
+       ((string-match-p "^}" line)
+        (setq funcp nil)
+        (setq a (append a (list line))) ;; 包含结束括号
+        )
+       ;; 检查是否是import
+       ((string-match-p "^import " line)
+        (setq c (append c (list line)))
+        )
+       ;; 根据 funcp 决定存储位置
+       (t
+        (if funcp
+            (setq a (append a (list line))) ;; 存储在 a
+          (setq b (append b (list line)))   ;; 存储在 b
+          ))))
+
+    ;; 将 b 包裹在 main 函数中
+    (let ((main-code (list "func main() {")))
+      (setq main-code (append main-code (mapcar (lambda (line) (concat "    " line)) b)))
+      (setq main-code (append main-code '("}")))
+      ;; 拼接 c a 和 main-code
+      (concat
+       (mapconcat 'identity c "\n")
+       "\n"
+       (mapconcat 'identity a "\n")
+       "\n"
+       (mapconcat 'identity main-code "\n")))))
 
 (defun org-babel-go-append-package (package)
   "Check to see if package is set. If not, add main unless there is a 'discard value for the package key (allows to tangle many source blocks into one go project)."
